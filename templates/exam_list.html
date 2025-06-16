@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block title %}考试列表 - 在线考试系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">考试列表</h1>
+
+{% if exams %}
+    <div class="exam-list">
+        {% for exam in exams %}
+        <div class="exam-card">
+            <div class="exam-info">
+                <h3 class="exam-title">{{ exam[1] }}</h3>
+                <div class="exam-time">
+                    <span>开始时间: {{ exam[2].strftime('%Y-%m-%d %H:%M') }}</span>
+                    <span style="margin-left: 15px;">结束时间: {{ exam[3].strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                {% if session.get('is_admin') %}
+                    <a href="{{ url_for('exam_results', exam_id=exam[0]) }}" class="btn btn-secondary">查看成绩</a>
+                {% endif %}
+                <a href="{{ url_for('start_exam', exam_id=exam[0]) }}" class="btn">进入考试</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card" style="text-align: center; padding: 30px;">
+        <p>当前没有可参加的考试</p>
+    </div>
+{% endif %}
+{% endblock %}

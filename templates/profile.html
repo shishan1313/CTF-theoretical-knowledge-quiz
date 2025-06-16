@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+
+{% block title %}个人中心 - 在线考试系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">个人中心</h1>
+
+<div class="card">
+    <div class="card-title">个人信息</div>
+    <p><strong>用户名:</strong> {{ session['username'] }}</p>
+    {% if session.get('is_admin') %}
+        <p><span class="badge" style="background-color: var(--primary-color); color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px;">管理员</span></p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-title">考试历史</div>
+    
+    {% if history %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>考试名称</th>
+                    <th>考试时间</th>
+                    <th>得分</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in history %}
+                <tr>
+                    <td>{{ record[0] }}</td>
+                    <td>{{ record[2].strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="{% if record[1] >= 80 %}score-high{% elif record[1] >= 60 %}score-medium{% else %}score-low{% endif %}">
+                        {{ record[1] }} 分
+                    </td>
+                    <td>
+                        {% if record[1] >= 80 %}
+                            <span class="badge badge-success">优秀</span>
+                        {% elif record[1] >= 60 %}
+                            <span class="badge badge-primary">及格</span>
+                        {% else %}
+                            <span class="badge badge-danger">不及格</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="text-align: center; padding: 20px;">暂无考试记录</p>
+    {% endif %}
+</div>
+{% endblock %}

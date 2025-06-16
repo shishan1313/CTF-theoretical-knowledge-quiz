@@ -1,0 +1,303 @@
+{% extends "layout.html" %}
+
+{% block title %}创建考试 - 在线考试系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">创建新考试</h1>
+
+<div class="card">
+    <form method="POST" action="{{ url_for('create_exam') }}" id="create-exam-form">
+        <div class="form-group">
+            <label for="exam_name" class="form-label">考试名称</label>
+            <input type="text" id="exam_name" name="exam_name" class="form-control" required>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+                <label for="start_time" class="form-label">开始时间</label>
+                <input type="datetime-local" id="start_time" name="start_time" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="end_time" class="form-label">结束时间</label>
+                <input type="datetime-local" id="end_time" name="end_time" class="form-control" required>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label class="form-label">选择题目</label>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" id="select-all-btn" class="btn btn-sm btn-secondary">全选</button>
+                    <button type="button" id="select-page-btn" class="btn btn-sm btn-secondary">本页全选</button>
+                    <span id="selected-count" style="font-size: 14px; color: var(--text-light);">已选择: 0 题</span>
+                </div>
+            </div>
+            
+            <div class="question-selection-container">
+                <div class="question-selection-list" id="question-list">
+                    {% for q in questions %}
+                    <div class="question-selection-item" data-page="{{ (loop.index0 // 10) + 1 }}">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="q_{{ q[0] }}" name="question_ids" value="{{ q[0] }}" class="checkbox-input question-checkbox">
+                            <label for="q_{{ q[0] }}" class="checkbox-label">
+                                <div class="question-preview">
+                                    <span class="question-text">{{ q[1] }}</span>
+                                    <span class="question-score">{{ q[2] }}分</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="pagination" id="question-selection-pagination">
+                    <!-- 分页控件将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group" style="margin-top: 20px;">
+            <button type="submit" class="btn">创建考试</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary" style="margin-left: 10px;">取消</a>
+        </div>
+    </form>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const startTimeInput = document.getElementById('start_time');
+        const endTimeInput = document.getElementById('end_time');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const selectPageBtn = document.getElementById('select-page-btn');
+        const selectedCountSpan = document.getElementById('selected-count');
+        
+        // 设置默认开始时间为当前时间
+        const now = new Date();
+        const nowStr = now.toISOString().slice(0, 16);
+        startTimeInput.value = nowStr;
+        
+        // 设置默认结束时间为当前时间后2小时
+        const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+        const twoHoursLaterStr = twoHoursLater.toISOString().slice(0, 16);
+        endTimeInput.value = twoHoursLaterStr;
+        
+        // 验证结束时间必须晚于开始时间
+        endTimeInput.addEventListener('change', function() {
+            if (new Date(this.value) <= new Date(startTimeInput.value)) {
+                alert('结束时间必须晚于开始时间');
+                this.value = twoHoursLaterStr;
+            }
+        });
+        
+        startTimeInput.addEventListener('change', function() {
+            if (new Date(endTimeInput.value) <= new Date(this.value)) {
+                const newEndTime = new Date(new Date(this.value).getTime() + 2 * 60 * 60 * 1000);
+                endTimeInput.value = newEndTime.toISOString().slice(0, 16);
+            }
+        });
+        
+        // 题目选择分页功能
+        const questionItems = document.querySelectorAll('.question-selection-item');
+        const itemsPerPage = 10;
+        const totalQuestions = questionItems.length;
+        const totalPages = Math.ceil(totalQuestions / itemsPerPage);
+        let currentPage = 1;
+        
+        // 初始化分页
+        if (totalQuestions > itemsPerPage) {
+            initPagination();
+        }
+        
+        function initPagination() {
+            const paginationContainer = document.getElementById('question-selection-pagination');
+            paginationContainer.innerHTML = ''; // 清空旧内容
+            
+            // 上一页按钮
+            const prevButton = createPaginationItem('上一页', false, () => {
+                if (currentPage > 1) {
+                    goToPage(currentPage - 1);
+                }
+            });
+            prevButton.classList.add('pagination-prev');
+            paginationContainer.appendChild(prevButton);
+            
+            // 页码按钮
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = createPaginationItem(i, i === 1, () => {
+                    goToPage(i);
+                });
+                paginationContainer.appendChild(pageButton);
+            }
+            
+            // 下一页按钮
+            const nextButton = createPaginationItem('下一页', false, () => {
+                if (currentPage < totalPages) {
+                    goToPage(currentPage + 1);
+                }
+            });
+            nextButton.classList.add('pagination-next');
+            paginationContainer.appendChild(nextButton);
+            
+            // 默认显示第一页
+            goToPage(1);
+        }
+        
+        function createPaginationItem(text, isActive, clickHandler) {
+            const item = document.createElement('div');
+            item.className = `pagination-item ${isActive ? 'active' : ''}`;
+            item.textContent = text;
+            item.addEventListener('click', clickHandler);
+            return item;
+        }
+        
+        function goToPage(page) {
+            currentPage = page;
+            
+            // 隐藏所有题目
+            questionItems.forEach(item => {
+                item.style.display = 'none';
+            });
+            
+            // 显示当前页的题目
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalQuestions);
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                if (questionItems[i]) {
+                    questionItems[i].style.display = 'block'; // 显式设置为 block
+                }
+            }
+            
+            updatePaginationState();
+            updateSelectPageButton();
+        }
+        
+        function updatePaginationState() {
+            const pageButtons = document.querySelectorAll('.pagination-item:not(.pagination-prev):not(.pagination-next)');
+            pageButtons.forEach((button, index) => {
+                button.classList.toggle('active', index + 1 === currentPage);
+            });
+            
+            const prevButton = document.querySelector('.pagination-prev');
+            const nextButton = document.querySelector('.pagination-next');
+            
+            prevButton.classList.toggle('disabled', currentPage === 1);
+            nextButton.classList.toggle('disabled', currentPage === totalPages);
+        }
+        
+            // 修改全选按钮事件监听
+            selectAllBtn.addEventListener('click', function() {
+                const checkboxes = document.querySelectorAll('.question-checkbox');
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                
+                // 切换所有复选框状态
+                checkboxes.forEach(cb => {
+                    cb.checked = !allChecked;
+                });
+
+                // 添加视觉反馈（例如滚动到已选题目）
+                if (!allChecked) {
+                    const firstHiddenItem = document.querySelector('.question-selection-item[style="display: none;"]');
+                    if (firstHiddenItem) {
+                        firstHiddenItem.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }
+
+                updateSelectedCount();
+                updateSelectAllButton();
+                updateSelectPageButton();
+            });
+
+        // 本页全选功能
+            selectPageBtn.addEventListener('click', function() {
+                const visibleItems = Array.from(document.querySelectorAll('.question-selection-item'))
+                    .filter(item => {
+                        const computedStyle = window.getComputedStyle(item);
+                        return computedStyle.display !== 'none';
+                    });
+            
+            const visibleCheckboxes = visibleItems.map(item => item.querySelector('.question-checkbox'));
+            const checkedInPage = visibleCheckboxes.filter(cb => cb.checked).length;
+            const shouldCheck = checkedInPage === 0 || checkedInPage < visibleCheckboxes.length;
+            
+            visibleCheckboxes.forEach(cb => {
+                cb.checked = shouldCheck;
+            });
+            
+            updateSelectedCount();
+            updateSelectAllButton();
+            updateSelectPageButton();
+        });
+        
+        // 监听复选框变化
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('question-checkbox')) {
+                updateSelectedCount();
+                updateSelectAllButton();
+                updateSelectPageButton();
+            }
+        });
+        
+        function updateSelectedCount() {
+            const checkedCount = document.querySelectorAll('.question-checkbox:checked').length;
+            selectedCountSpan.textContent = `已选择: ${checkedCount} 题`;
+        }
+        
+        function updateSelectAllButton() {
+        const checkboxes = document.querySelectorAll('.question-checkbox');
+        const checkedCount = document.querySelectorAll('.question-checkbox:checked').length;
+        
+        // 动态计算总题数（避免分页影响）
+        const totalVisible = document.querySelectorAll('.question-selection-item[style="display: block;"]').length;
+        
+        if (checkedCount === totalVisible) {
+            selectAllBtn.textContent = '取消全选';
+        } else {
+            selectAllBtn.textContent = '全选';
+        }
+        }
+        
+        function updateSelectPageButton() {
+            const visibleItems = Array.from(document.querySelectorAll('.question-selection-item'))
+            .filter(item => {
+                const computedStyle = window.getComputedStyle(item);
+                return computedStyle.display !== 'none';
+            });
+            
+            if (visibleItems.length === 0) {
+                selectPageBtn.textContent = '本页全选';
+                return;
+            }
+            
+            const visibleCheckboxes = visibleItems.map(item => item.querySelector('.question-checkbox'));
+            const checkedInPage = visibleCheckboxes.filter(cb => cb.checked).length;
+            
+            if (checkedInPage === 0) {
+                selectPageBtn.textContent = '本页全选';
+            } else if (checkedInPage === visibleCheckboxes.length) {
+                selectPageBtn.textContent = '取消本页全选';
+            } else {
+                selectPageBtn.textContent = '本页全选';
+            }
+        }
+        
+        // 表单提交验证
+        const form = document.getElementById('create-exam-form');
+        form.addEventListener('submit', function(event) {
+            const checkboxes = document.querySelectorAll('input[name="question_ids"]:checked');
+            
+            if (checkboxes.length === 0) {
+                event.preventDefault();
+                alert('请至少选择一道题目');
+            }
+        });
+        
+        // 初始化计数
+        updateSelectedCount();
+        updateSelectPageButton();
+    });
+</script>
+{% endblock %}
+{% endblock %}

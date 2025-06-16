@@ -1,0 +1,168 @@
+{% extends "layout.html" %}
+
+{% block title %}考试成绩 - 在线考试系统{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1 class="page-title">{{ exam.exam_name }} - 成绩统计</h1>
+    <a href="{{ url_for('exam_list') }}" class="btn btn-secondary">返回考试列表</a>
+</div>
+
+<div class="card">
+    <div class="card-title">考试信息</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <div>
+            <p><strong>考试名称:</strong> {{ exam.exam_name }}</p>
+            <p><strong>开始时间:</strong> {{ exam.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
+        </div>
+        <div>
+            <p><strong>结束时间:</strong> {{ exam.end_time.strftime('%Y-%m-%d %H:%M') }}</p>
+            <p><strong>参考人数:</strong> {{ results|length }} 人</p>
+        </div>
+        <div>
+            <p><strong>平均分:</strong> <span class="score-highlight">{{ avg_score }}</span> 分</p>
+            <p><strong>最高分:</strong> <span class="score-highlight score-high">{{ max_score }}</span> 分</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-title">成绩列表 <small>(仅显示每位用户的最后一次考试成绩)</small></div>
+    
+    {% if results %}
+        <table class="score-table">
+            <thead>
+                <tr>
+                    <th>用户名</th>
+                    <th>开始时间</th>
+                    <th>到目前</th>
+                    <th>得分</th>
+                    <th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td>{{ result.username }}</td>
+                    <td>{{ result.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ result.duration }} 分钟</td>
+                    <td class="score-highlight {% if result.score >= 80 %}score-high{% elif result.score >= 60 %}score-medium{% else %}score-low{% endif %}">
+                        {{ result.score }} 分
+                    </td>
+                    <td>
+                        {% if result.score >= 80 %}
+                            <span class="badge badge-success">优秀</span>
+                        {% elif result.score >= 60 %}
+                            <span class="badge badge-primary">及格</span>
+                        {% else %}
+                            <span class="badge badge-danger">不及格</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p style="text-align: center; padding: 20px;">暂无考试记录</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-title">成绩分布</div>
+    <div id="score-chart" style="height: 300px;"></div>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 简单的图表绘制函数
+        function drawScoreChart() {
+            const chartContainer = document.getElementById('score-chart');
+            const scores = [
+                {% for result in results %}
+                    {{ result.score }},
+                {% endfor %}
+            ];
+            
+            // 计算分数分布
+            const distribution = {
+                '0-59': 0,
+                '60-69': 0,
+                '70-79': 0,
+                '80-89': 0,
+                '90-100': 0
+            };
+            
+            scores.forEach(score => {
+                if (score < 60) distribution['0-59']++;
+                else if (score < 70) distribution['60-69']++;
+                else if (score < 80) distribution['70-79']++;
+                else if (score < 90) distribution['80-89']++;
+                else distribution['90-100']++;
+            });
+            
+            // 清空容器
+            chartContainer.innerHTML = '';
+            
+            // 创建图表
+            const chartWrapper = document.createElement('div');
+            chartWrapper.style.display = 'flex';
+            chartWrapper.style.alignItems = 'flex-end';
+            chartWrapper.style.height = '250px';
+            chartWrapper.style.padding = '20px 0';
+            chartWrapper.style.justifyContent = 'space-around';
+            
+            // 定义颜色
+            const colors = {
+                '0-59': 'var(--danger-color)',
+                '60-69': 'var(--warning-color)',
+                '70-79': 'var(--primary-color)',
+                '80-89': '#28a745',
+                '90-100': '#20c997'
+            };
+            
+            // 找出最大值用于计算比例
+            const maxCount = Math.max(...Object.values(distribution)) || 1;
+            
+            // 创建每个柱状图
+            Object.entries(distribution).forEach(([range, count]) => {
+                const barWrapper = document.createElement('div');
+                barWrapper.style.display = 'flex';
+                barWrapper.style.flexDirection = 'column';
+                barWrapper.style.alignItems = 'center';
+                barWrapper.style.width = '18%';
+                
+                const bar = document.createElement('div');
+                const height = count > 0 ? (count / maxCount) * 200 : 0;
+                bar.style.height = `${height}px`;
+                bar.style.width = '100%';
+                bar.style.backgroundColor = colors[range];
+                bar.style.borderRadius = '4px 4px 0 0';
+                bar.style.transition = 'height 0.5s ease';
+                
+                const label = document.createElement('div');
+                label.textContent = range;
+                label.style.marginTop = '8px';
+                label.style.fontSize = '14px';
+                
+                const countLabel = document.createElement('div');
+                countLabel.textContent = count + '人';
+                countLabel.style.marginTop = '4px';
+                countLabel.style.fontSize = '12px';
+                countLabel.style.color = 'var(--text-light)';
+                
+                barWrapper.appendChild(bar);
+                barWrapper.appendChild(label);
+                barWrapper.appendChild(countLabel);
+                chartWrapper.appendChild(barWrapper);
+            });
+            
+            chartContainer.appendChild(chartWrapper);
+        }
+        
+        // 绘制图表
+        drawScoreChart();
+    });
+</script>
+{% endblock %}
+{% endblock %}

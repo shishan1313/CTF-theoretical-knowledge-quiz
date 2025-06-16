@@ -1,0 +1,260 @@
+{% extends "layout.html" %}
+
+{% block title %}在线考试 - 在线考试系统{% endblock %}
+
+{% block content %}
+<div class="exam-container">
+    <!-- 答题卡侧边栏 -->
+    <div class="answer-card-sidebar" id="answer-card">
+        <div class="answer-card-header">
+            <h3>答题卡</h3>
+            <div class="exam-timer" data-end-time="{{ end_time }}">倒计时加载中...</div>
+        </div>
+        
+        <div class="answer-card-grid">
+            {% for q in questions %}
+            <div class="answer-card-item" data-question-id="{{ q.id }}" onclick="scrollToQuestion('{{ q.id }}')">
+                <span class="question-number">{{ loop.index }}</span>
+                <span class="question-score">{{ q.score }}分</span>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="answer-card-legend">
+            <div class="legend-item">
+                <span class="legend-color unanswered"></span>
+                <span>未答题</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color answered"></span>
+                <span>已答题</span>
+            </div>
+        </div>
+        
+        <div class="answer-card-footer">
+            <button type="button" class="btn btn-sm" onclick="submitExam()">提交试卷</button>
+        </div>
+    </div>
+    
+    <!-- 主要内容区域 -->
+    <div class="exam-main-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 class="page-title">在线考试</h1>
+            <button class="btn btn-sm btn-secondary" onclick="toggleAnswerCard()">
+                <span id="toggle-text">隐藏答题卡</span>
+            </button>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('submit', exam_id=exam_id) }}" id="exam-form">
+            {% for q in questions %}
+            <div class="question-card" id="question-{{ q.id }}" data-question-id="{{ q.id }}">
+                <div class="question-header">
+                    <span class="question-number-badge">第{{ loop.index }}题</span>
+                    <span class="question-score-badge">{{ q.score }}分</span>
+                </div>
+                <p class="question-text">{{ q.text }}</p>
+                <ul class="options-list">
+                    {% for option in q.options %}
+                    <li class="option-item">
+                        <label class="option-label">
+                            <input type="radio" name="q_{{ q.id }}" value="{{ option }}" class="option-input" required>
+                            <span>{{ option }}</span>
+                        </label>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+            
+            <div style="margin: 30px 0; text-align: center;">
+                <button type="submit" class="btn" style="min-width: 150px;">提交试卷</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // 全局变量
+    let answerCardVisible = true;
+    
+    // 考试倒计时功能
+    const timerElement = document.querySelector('.exam-timer');
+    const endTimeStr = timerElement.getAttribute('data-end-time');
+    
+    if (endTimeStr) {
+        const endTime = new Date(endTimeStr).getTime();
+        
+        function updateTimer() {
+            const now = new Date().getTime();
+            const distance = endTime - now;
+            
+            if (distance < 0) {
+                timerElement.innerHTML = '<span style="color: var(--danger-color);">考试已结束</span>';
+                setTimeout(() => {
+                    alert('考试时间已结束，系统将自动提交您的答卷。');
+                    document.getElementById('exam-form').submit();
+                }, 1000);
+                return;
+            }
+            
+            const hours = Math.floor(distance / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+            
+            timerElement.innerHTML = `
+                <span style="color: ${distance < 300000 ? 'var(--danger-color)' : 'var(--primary-color)'}; font-size: 14px;">
+                    ${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}
+                </span>
+            `;
+            
+            if (distance < 300000) {
+                timerElement.classList.add('blink');
+            }
+        }
+        
+        updateTimer();
+        const timerInterval = setInterval(updateTimer, 1000);
+        
+        window.addEventListener('beforeunload', function() {
+            clearInterval(timerInterval);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化答题卡状态
+        updateAnswerCardStatus();
+        
+        // 添加选项选中效果
+        const optionLabels = document.querySelectorAll('.option-label');
+        
+        optionLabels.forEach(label => {
+            label.addEventListener('click', function() {
+                const questionCard = this.closest('.question-card');
+                const allLabels = questionCard.querySelectorAll('.option-label');
+                
+                allLabels.forEach(l => {
+                    l.classList.remove('selected');
+                });
+                
+                this.classList.add('selected');
+                
+                // 更新答题卡状态
+                const questionId = questionCard.getAttribute('data-question-id');
+                updateAnswerCardItem(questionId, true);
+            });
+        });
+        
+        // 监听单选按钮变化
+        document.addEventListener('change', function(e) {
+            if (e.target.type === 'radio') {
+                const questionCard = e.target.closest('.question-card');
+                const questionId = questionCard.getAttribute('data-question-id');
+                updateAnswerCardItem(questionId, true);
+            }
+        });
+        
+        // 提交前确认
+        const form = document.getElementById('exam-form');
+        form.addEventListener('submit', function(event) {
+            const questions = document.querySelectorAll('.question-card');
+            let unanswered = 0;
+            
+            questions.forEach(question => {
+                const questionRadios = question.querySelectorAll('input[type="radio"]');
+                let answered = false;
+                
+                questionRadios.forEach(radio => {
+                    if (radio.checked) {
+                        answered = true;
+                    }
+                });
+                
+                if (!answered) {
+                    unanswered++;
+                    question.style.border = '2px solid var(--danger-color)';
+                } else {
+                    question.style.border = 'none';
+                }
+            });
+            
+            if (unanswered > 0) {
+                event.preventDefault();
+                alert(`您还有 ${unanswered} 道题目未回答，请检查后再提交。`);
+                
+                const firstUnanswered = document.querySelector('.question-card[style*="border"]');
+                if (firstUnanswered) {
+                    firstUnanswered.scrollIntoView({ behavior: 'smooth' });
+                }
+            } else if (!confirm('确定要提交试卷吗？提交后将无法修改。')) {
+                event.preventDefault();
+            }
+        });
+    });
+    
+    // 答题卡相关函数
+    function updateAnswerCardStatus() {
+        const questions = document.querySelectorAll('.question-card');
+        questions.forEach(question => {
+            const questionId = question.getAttribute('data-question-id');
+            const radios = question.querySelectorAll('input[type="radio"]');
+            const answered = Array.from(radios).some(radio => radio.checked);
+            updateAnswerCardItem(questionId, answered);
+        });
+    }
+    
+    function updateAnswerCardItem(questionId, answered) {
+        const answerCardItem = document.querySelector(`[data-question-id="${questionId}"]`);
+        if (answerCardItem) {
+            answerCardItem.classList.toggle('answered', answered);
+            answerCardItem.classList.toggle('unanswered', !answered);
+        }
+    }
+    
+    function scrollToQuestion(questionId) {
+        const questionElement = document.getElementById(`question-${questionId}`);
+        if (questionElement) {
+            questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // 高亮显示题目
+            questionElement.style.boxShadow = '0 0 10px rgba(58, 110, 165, 0.5)';
+            setTimeout(() => {
+                questionElement.style.boxShadow = 'var(--shadow)';
+            }, 2000);
+        }
+    }
+    
+    function toggleAnswerCard() {
+        const answerCard = document.getElementById('answer-card');
+        const toggleText = document.getElementById('toggle-text');
+        const examContainer = document.querySelector('.exam-container');
+        
+        answerCardVisible = !answerCardVisible;
+        
+        if (answerCardVisible) {
+            answerCard.style.display = 'block';
+            examContainer.classList.remove('answer-card-hidden');
+            toggleText.textContent = '隐藏答题卡';
+        } else {
+            answerCard.style.display = 'none';
+            examContainer.classList.add('answer-card-hidden');
+            toggleText.textContent = '显示答题卡';
+        }
+    }
+    
+    function submitExam() {
+        document.getElementById('exam-form').dispatchEvent(new Event('submit'));
+    }
+</script>
+{% endblock %}
+{% endblock %}

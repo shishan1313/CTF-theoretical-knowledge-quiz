@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+
+{% block title %}注册 - 理论知识答题系统{% endblock %}
+
+{% block content %}
+<div style="max-width: 500px; margin: 0 auto;">
+    <h1 class="page-title">用户注册</h1>
+    
+    <div class="card">
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="form-group">
+                <label for="username" class="form-label">用户名</label>
+                <input type="text" id="username" name="username" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">密码</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm_password" class="form-label">确认密码</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn" style="width: 100%;">注册</button>
+            </div>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <p>已有账号？<a href="{{ url_for('login') }}" style="color: var(--primary-color);">立即登录</a></p>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirm_password');
+        
+        form.addEventListener('submit', function(event) {
+            if (password.value !== confirmPassword.value) {
+                event.preventDefault();
+                
+                // 添加错误提示
+                if (!confirmPassword.nextElementSibling || !confirmPassword.nextElementSibling.classList.contains('error-message')) {
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'error-message';
+                    errorMsg.textContent = '两次输入的密码不一致';
+                    errorMsg.style.color = 'var(--danger-color)';
+                    errorMsg.style.fontSize = '14px';
+                    errorMsg.style.marginTop = '5px';
+                    confirmPassword.parentNode.insertBefore(errorMsg, confirmPassword.nextSibling);
+                }
+                
+                confirmPassword.classList.add('is-invalid');
+            }
+        });
+        
+        // 输入时检查
+        confirmPassword.addEventListener('input', function() {
+            if (this.value !== password.value) {
+                this.classList.add('is-invalid');
+                
+                // 添加错误提示
+                if (!this.nextElementSibling || !this.nextElementSibling.classList.contains('error-message')) {
+                    const errorMsg = document.createElement('div');
+                    errorMsg.className = 'error-message';
+                    errorMsg.textContent = '两次输入的密码不一致';
+                    errorMsg.style.color = 'var(--danger-color)';
+                    errorMsg.style.fontSize = '14px';
+                    errorMsg.style.marginTop = '5px';
+                    this.parentNode.insertBefore(errorMsg, this.nextSibling);
+                }
+            } else {
+                this.classList.remove('is-invalid');
+                
+                // 移除错误提示
+                if (this.nextElementSibling && this.nextElementSibling.classList.contains('error-message')) {
+                    this.nextElementSibling.remove();
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

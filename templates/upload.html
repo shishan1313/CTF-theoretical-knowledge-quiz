@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+
+{% block title %}上传题目 - 在线考试系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">上传题目</h1>
+
+<div class="card">
+    <div class="card-title">上传Excel文件</div>
+    <p style="margin-bottom: 20px;">请上传包含题目的Excel文件，文件格式要求：</p>
+    
+    <ul style="margin-left: 20px; margin-bottom: 20px;">
+        <li>必须包含"题目"、"选项"和"正确答案"三列</li>
+        <li>"选项"列中的选项用英文逗号分隔</li>
+        <li>"正确答案"必须是选项中的一个</li>
+        <li>系统会自动检测并跳过重复题目</li>
+    </ul>
+    
+    <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="file" class="form-label">选择文件</label>
+            <input type="file" id="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+        </div>
+        
+        <div class="form-group">
+            <button type="submit" class="btn">上传文件</button>
+            <a href="{{ url_for('question_bank') }}" class="btn btn-secondary" style="margin-left: 10px;">返回题库</a>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-title">Excel模板示例</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>题目</th>
+                <th>选项</th>
+                <th>正确答案</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>TCP属于OSI哪一层？</td>
+                <td>传输层,网络层,应用层</td>
+                <td>传输层</td>
+            </tr>
+            <tr>
+                <td>HTTP默认端口？</td>
+                <td>80,443,8080,21</td>
+                <td>80</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

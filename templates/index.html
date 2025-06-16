@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+
+{% block title %}首页 - 理论知识答题系统{% endblock %}
+
+{% block content %}
+<h1 class="page-title">欢迎使用理论知识答题系统</h1>
+
+<div class="card">
+    <div class="card-title">系统简介</div>
+    <p>这是一个功能完善的理论知识答题系统，提供题库管理、考试创建、在线答题和成绩统计等功能。</p>
+    <!-- <p>系统特点：</p>
+    <ul style="margin-left: 20px; margin-top: 10px;">
+        <li>支持多种题型</li>
+        <li>实时考试监控</li>
+        <li>自动评分系统</li>
+        <li>详细的成绩分析</li>
+    </ul> -->
+</div>
+
+{% if 'user_id' in session %}
+    <div class="card">
+        <div class="card-title">快速导航</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+            <a href="{{ url_for('exam_list') }}" class="btn">进入考试</a>
+            <a href="{{ url_for('profile') }}" class="btn">查看成绩</a>
+            {% if session.get('is_admin') %}
+                <a href="{{ url_for('question_bank') }}" class="btn">管理题库</a>
+                <a href="{{ url_for('create_exam') }}" class="btn">创建考试</a>
+                <a href="{{ url_for('user_management') }}" class="btn">用户管理</a>
+            {% endif %}
+        </div>
+    </div>
+{% else %}
+            <!--<div class="card" style="text-align: center; padding: 30px;">
+        <h2 style="margin-bottom: 20px;">开始使用</h2>
+            <div style="display: flex; gap: 20px; justify-content: center;">
+            <a href="{{ url_for('login') }}" class="btn">登录</a>
+            <a href="{{ url_for('register') }}" class="btn btn-secondary">注册</a>
+        </div> 
+    </div>-->
+{% endif %}
+{% endblock %}

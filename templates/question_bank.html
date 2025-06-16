@@ -1,0 +1,161 @@
+{% extends "layout.html" %}
+
+{% block title %}题库管理 - 在线考试系统{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1 class="page-title">题库管理</h1>
+    <a href="{{ url_for('upload') }}" class="btn">上传新题目</a>
+</div>
+
+<div class="card" style="margin-bottom: 30px;">
+    <div class="card-title">题库统计</div>
+    <p>当前题库共有 <strong>{{ questions|length }}</strong> 道题目</p>
+</div>
+
+{% if questions %}
+    <div class="question-list">
+        {% for question in questions %}
+        <div class="question-item" data-page="{{ (loop.index0 // 10) + 1 }}">
+            <div class="question-header">
+                <h3>题目 #{{ question.id }}</h3>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <form action="{{ url_for('update_question_score', question_id=question.id) }}" method="POST" style="display: flex; align-items: center; gap: 5px;">
+                        <label style="font-size: 14px;">分值:</label>
+                        <input type="number" name="score" value="{{ question.score }}" min="1" max="100" style="width: 60px; padding: 4px; border: 1px solid var(--border-color); border-radius: 3px;">
+                        <button type="submit" class="btn btn-sm">更新</button>
+                    </form>
+                    <form action="{{ url_for('delete_question', question_id=question.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirmDelete('确定要删除此题吗？')">删除</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="question-content">
+                <p>{{ question.question }}</p>
+            </div>
+            
+            <div class="question-options">
+                <p><strong>选项:</strong></p>
+                <ul style="margin-top: 5px; list-style-type: disc;">
+                    {% for option in question.options.split(',') %}
+                    <li>{{ option }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <div class="question-answer">
+                <p><strong>正确答案:</strong> {{ question.answer }}</p>
+                <p><strong>分值:</strong> <span class="score-badge">{{ question.score }}分</span></p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="pagination" id="question-pagination">
+        <!-- 分页控件将通过JavaScript动态生成 -->
+    </div>
+{% else %}
+    <div class="card" style="text-align: center; padding: 30px;">
+        <p>题库中暂无题目</p>
+        <a href="{{ url_for('upload') }}" class="btn" style="margin-top: 15px;">上传题目</a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 题库分页功能
+        const questionItems = document.querySelectorAll('.question-item');
+        const itemsPerPage = 10;
+        const totalQuestions = questionItems.length;
+        const totalPages = Math.ceil(totalQuestions / itemsPerPage);
+        
+        // 如果题目数量超过10个，初始化分页
+        if (totalQuestions > itemsPerPage) {
+            initPagination();
+        }
+        
+        function initPagination() {
+            const paginationContainer = document.getElementById('question-pagination');
+            
+            // 创建分页控件
+            // 上一页按钮
+            const prevButton = createPaginationItem('上一页', false, () => {
+                if (currentPage > 1) {
+                    goToPage(currentPage - 1);
+                }
+            });
+            prevButton.classList.add('pagination-prev');
+            paginationContainer.appendChild(prevButton);
+            
+            // 页码按钮
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = createPaginationItem(i, i === 1, () => {
+                    goToPage(i);
+                });
+                paginationContainer.appendChild(pageButton);
+            }
+            
+            // 下一页按钮
+            const nextButton = createPaginationItem('下一页', false, () => {
+                if (currentPage < totalPages) {
+                    goToPage(currentPage + 1);
+                }
+            });
+            nextButton.classList.add('pagination-next');
+            paginationContainer.appendChild(nextButton);
+            
+            // 默认显示第一页
+            goToPage(1);
+        }
+        
+        function createPaginationItem(text, isActive, clickHandler) {
+            const item = document.createElement('div');
+            item.className = `pagination-item ${isActive ? 'active' : ''}`;
+            item.textContent = text;
+            item.addEventListener('click', clickHandler);
+            return item;
+        }
+        
+        let currentPage = 1;
+        
+        function goToPage(page) {
+            // 更新当前页码
+            currentPage = page;
+            
+            // 隐藏所有题目
+            questionItems.forEach(item => {
+                item.style.display = 'none';
+            });
+            
+            // 显示当前页的题目
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalQuestions);
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                questionItems[i].style.display = 'block';
+            }
+            
+            // 更新分页控件状态
+            updatePaginationState();
+        }
+        
+        function updatePaginationState() {
+            // 更新页码按钮状态
+            const pageButtons = document.querySelectorAll('.pagination-item:not(.pagination-prev):not(.pagination-next)');
+            pageButtons.forEach((button, index) => {
+                button.classList.toggle('active', index + 1 === currentPage);
+            });
+            
+            // 更新上一页/下一页按钮状态
+            const prevButton = document.querySelector('.pagination-prev');
+            const nextButton = document.querySelector('.pagination-next');
+            
+            prevButton.classList.toggle('disabled', currentPage === 1);
+            nextButton.classList.toggle('disabled', currentPage === totalPages);
+        }
+    });
+</script>
+{% endblock %}
